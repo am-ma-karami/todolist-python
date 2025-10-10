@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "todolist-python"
+version = "0.1.0"
+description = "A Python OOP ToDoList application"
+authors = ["AmirMahdi Karami <amir.mahdi.karami@gmail.com>"]
+readme = "README.md"
+packages = [{include = "todolist", from = "src"}]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+black = "^23.0.0"
+flake8 = "^6.0.0"
+mypy = "^1.5.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
