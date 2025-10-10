@@ -24,11 +24,11 @@ def main() -> None:
         storage = InMemoryStorage()
         project_service = ProjectService(storage, config)
         task_service = TaskService(storage, config)
-        
+
         # Create and run CLI interface
         cli = CLIInterface(project_service, task_service, config)
         cli.run()
-        
+
     except KeyboardInterrupt:
         print("\n\nGoodbye!")
         sys.exit(0)
