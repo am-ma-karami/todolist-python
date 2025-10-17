@@ -5,8 +5,10 @@ This module contains the Project class which represents a project
 that can contain multiple tasks.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 from uuid import uuid4, UUID
 
 
@@ -36,7 +38,7 @@ class Project:
         self._name: str = name.strip()
         self._description: str = description.strip()
         self._created_at: datetime = datetime.now()
-        self._tasks: List["Task"] = []
+        self._tasks: list["Task"] = []
 
     @property
     def id(self) -> UUID:
@@ -59,7 +61,7 @@ class Project:
         return self._created_at
 
     @property
-    def tasks(self) -> List["Task"]:
+    def tasks(self) -> list["Task"]:
         """Get a copy of the tasks list."""
         return self._tasks.copy()
 
@@ -130,7 +132,7 @@ class Project:
                 return task
         return None
 
-    def get_tasks_by_status(self, status: str) -> List["Task"]:
+    def get_tasks_by_status(self, status: str) -> list["Task"]:
         """
         Get all tasks with a specific status.
 

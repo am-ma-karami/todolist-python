@@ -5,9 +5,12 @@ This module provides an in-memory storage layer that stores projects and tasks
 in memory during the application's runtime.
 """
 
-from typing import List, Optional, Dict
+from __future__ import annotations
+
+from typing import Optional
 from uuid import UUID
 
+from ..exceptions import DuplicateResourceError, StorageNotFoundError
 from ..models.project import Project
 from ..models.task import Task
 
@@ -22,10 +25,10 @@ class InMemoryStorage:
 
     def __init__(self) -> None:
         """Initialize the in-memory storage."""
-        self._projects: Dict[UUID, Project] = {}
-        self._tasks: Dict[UUID, Task] = {}
-        self._project_tasks: Dict[
-            UUID, List[UUID]
+        self._projects: dict[UUID, Project] = {}
+        self._tasks: dict[UUID, Task] = {}
+        self._project_tasks: dict[
+            UUID, list[UUID]
         ] = {}  # project_id -> list of task_ids
 
     # Project methods
@@ -43,7 +46,7 @@ class InMemoryStorage:
             ValueError: If project with same ID already exists
         """
         if project.id in self._projects:
-            raise ValueError(f"Project with ID {project.id} already exists")
+            raise DuplicateResourceError(f"Project with ID {project.id} already exists")
 
         self._projects[project.id] = project
         self._project_tasks[project.id] = []
@@ -61,7 +64,7 @@ class InMemoryStorage:
         """
         return self._projects.get(project_id)
 
-    def get_all_projects(self) -> List[Project]:
+    def get_all_projects(self) -> list[Project]:
         """
         Get all projects.
 
@@ -85,7 +88,7 @@ class InMemoryStorage:
             ValueError: If project doesn't exist
         """
         if project.id not in self._projects:
-            raise ValueError(f"Project with ID {project.id} not found")
+            raise StorageNotFoundError(f"Project with ID {project.id} not found")
 
         self._projects[project.id] = project
         return project
@@ -150,10 +153,10 @@ class InMemoryStorage:
             ValueError: If task with same ID already exists or project doesn't exist
         """
         if task.id in self._tasks:
-            raise ValueError(f"Task with ID {task.id} already exists")
+            raise DuplicateResourceError(f"Task with ID {task.id} already exists")
 
         if project_id not in self._projects:
-            raise ValueError(f"Project with ID {project_id} not found")
+            raise StorageNotFoundError(f"Project with ID {project_id} not found")
 
         self._tasks[task.id] = task
         self._project_tasks[project_id].append(task.id)
@@ -171,7 +174,7 @@ class InMemoryStorage:
         """
         return self._tasks.get(task_id)
 
-    def get_tasks_by_project(self, project_id: UUID) -> List[Task]:
+    def get_tasks_by_project(self, project_id: UUID) -> list[Task]:
         """
         Get all tasks belonging to a project.
 
@@ -188,7 +191,7 @@ class InMemoryStorage:
         tasks = [self._tasks[task_id] for task_id in task_ids if task_id in self._tasks]
         return sorted(tasks, key=lambda t: t.created_at)
 
-    def get_all_tasks(self) -> List[Task]:
+    def get_all_tasks(self) -> list[Task]:
         """
         Get all tasks.
 
@@ -212,7 +215,7 @@ class InMemoryStorage:
             ValueError: If task doesn't exist
         """
         if task.id not in self._tasks:
-            raise ValueError(f"Task with ID {task.id} not found")
+            raise StorageNotFoundError(f"Task with ID {task.id} not found")
 
         self._tasks[task.id] = task
         return task
@@ -275,7 +278,7 @@ class InMemoryStorage:
             return 0
         return len(self._project_tasks[project_id])
 
-    def get_tasks_by_status(self, status: str) -> List[Task]:
+    def get_tasks_by_status(self, status: str) -> list[Task]:
         """
         Get all tasks with a specific status.
 
@@ -289,7 +292,7 @@ class InMemoryStorage:
 
     def get_tasks_by_project_and_status(
         self, project_id: UUID, status: str
-    ) -> List[Task]:
+    ) -> list[Task]:
         """
         Get tasks in a project with a specific status.
 

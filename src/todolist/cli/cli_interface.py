@@ -5,13 +5,22 @@ This module provides the command-line interface for interacting with
 projects and tasks.
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
+from ..exceptions import (
+    DuplicateProjectError,
+    ProjectLimitExceededError,
+    ProjectNotFoundError,
+    TaskLimitExceededError,
+    TaskNotFoundError,
+)
+from ..services.config_service import ConfigService
 from ..services.project_service import ProjectService
 from ..services.task_service import TaskService
-from ..services.config_service import ConfigService
 
 
 class CLIInterface:
@@ -168,7 +177,11 @@ class CLIInterface:
             print(f"Name: {project.name}")
             print(f"Description: {project.description}")
 
-        except ValueError as e:
+        except (
+            ProjectNotFoundError,
+            ProjectLimitExceededError,
+            DuplicateProjectError,
+        ) as e:
             print(f"❌ Error: {e}")
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
@@ -263,7 +276,10 @@ class CLIInterface:
                 new_description if new_description else None,
             )
             print("✅ Project updated successfully!")
-        except ValueError as e:
+        except (
+            ProjectNotFoundError,
+            DuplicateProjectError,
+        ) as e:
             print(f"❌ Error: {e}")
 
     def _delete_project(self) -> None:
@@ -326,7 +342,11 @@ class CLIInterface:
             if task.deadline:
                 print(f"Deadline: {task.deadline}")
 
-        except ValueError as e:
+        except (
+            ProjectNotFoundError,
+            TaskLimitExceededError,
+            TaskNotFoundError,
+        ) as e:
             print(f"❌ Error: {e}")
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
@@ -407,23 +427,34 @@ class CLIInterface:
         print(f"\n📝 Overdue Tasks ({len(tasks)}):")
         self._print_tasks_list(tasks)
 
-    def _print_tasks_list(self, tasks) -> None:
+    def _print_tasks_list(self, tasks: list) -> None:
         """Print a list of tasks."""
         print("-" * 80)
         for i, task in enumerate(tasks, 1):
-            status_emoji = {"todo": "⏳", "doing": "🔄", "done": "✅"}.get(
-                task.status, "❓"
-            )
-            overdue = " (OVERDUE)" if task.is_overdue() else ""
-            print(f"{i}. {status_emoji} {task.title}{overdue}")
-            print(f"   ID: {task.id}")
-            print(f"   Status: {task.status}")
-            if task.deadline:
-                print(f"   Deadline: {task.deadline}")
-            print(
-                f"   Description: {task.description[:100]}{'...' if len(task.description) > 100 else ''}"
-            )
-            print("-" * 80)
+            self._print_single_task(task, i)
+        print("-" * 80)
+
+    def _print_single_task(self, task, index: int) -> None:
+        """Print a single task with its details."""
+        status_emoji = self._get_status_emoji(task.status)
+        overdue = " (OVERDUE)" if task.is_overdue() else ""
+        print(f"{index}. {status_emoji} {task.title}{overdue}")
+        print(f"   ID: {task.id}")
+        print(f"   Status: {task.status}")
+        if task.deadline:
+            print(f"   Deadline: {task.deadline}")
+        self._print_task_description(task.description)
+
+    def _get_status_emoji(self, status: str) -> str:
+        """Get emoji for task status."""
+        return {"todo": "⏳", "doing": "🔄", "done": "✅"}.get(status, "❓")
+
+    def _print_task_description(self, description: str) -> None:
+        """Print task description with truncation if needed."""
+        truncated_desc = (
+            f"{description[:100]}{'...' if len(description) > 100 else ''}"
+        )
+        print(f"   Description: {truncated_desc}")
 
     def _view_task_details(self) -> None:
         """View detailed information about a task."""
@@ -486,7 +517,10 @@ class CLIInterface:
                 new_deadline,
             )
             print("✅ Task updated successfully!")
-        except ValueError as e:
+        except (
+            TaskNotFoundError,
+            ProjectNotFoundError,
+        ) as e:
             print(f"❌ Error: {e}")
 
     def _change_task_status(self) -> None:
@@ -509,7 +543,10 @@ class CLIInterface:
         try:
             self._task_service.update_task(task_id, status=new_status)
             print("✅ Task status updated successfully!")
-        except ValueError as e:
+        except (
+            TaskNotFoundError,
+            ProjectNotFoundError,
+        ) as e:
             print(f"❌ Error: {e}")
 
     def _delete_task(self) -> None:

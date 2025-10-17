@@ -4,8 +4,9 @@ Main CLI application for ToDoList.
 This module provides the main command-line interface for the ToDoList application.
 """
 
+from __future__ import annotations
+
 import sys
-from typing import Optional
 
 from ..storage.in_memory_storage import InMemoryStorage
 from ..services.config_service import ConfigService

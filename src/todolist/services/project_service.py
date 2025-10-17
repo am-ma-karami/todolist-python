@@ -5,9 +5,16 @@ This module contains the business logic for managing projects,
 including validation, limits, and business rules.
 """
 
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import Optional
 from uuid import UUID
 
+from ..exceptions import (
+    DuplicateProjectError,
+    ProjectLimitExceededError,
+    ProjectNotFoundError,
+)
 from ..models.project import Project
 from ..storage.in_memory_storage import InMemoryStorage
 from .config_service import ConfigService
@@ -48,7 +55,7 @@ class ProjectService:
         """
         # Check project limit
         if self._storage.get_project_count() >= self._config.get_project_max_count():
-            raise ValueError(
+            raise ProjectLimitExceededError(
                 f"Maximum number of projects ({self._config.get_project_max_count()}) exceeded"
             )
 
@@ -56,7 +63,7 @@ class ProjectService:
         existing_projects = self._storage.get_all_projects()
         for project in existing_projects:
             if project.name.lower() == name.lower():
-                raise ValueError(f"Project with name '{name}' already exists")
+                raise DuplicateProjectError(f"Project with name '{name}' already exists")
 
         # Create and store the project
         project = Project(name, description)
@@ -74,7 +81,7 @@ class ProjectService:
         """
         return self._storage.get_project(project_id)
 
-    def get_all_projects(self) -> List[Project]:
+    def get_all_projects(self) -> list[Project]:
         """
         Get all projects.
 
@@ -105,7 +112,7 @@ class ProjectService:
         """
         project = self._storage.get_project(project_id)
         if not project:
-            raise ValueError(f"Project with ID {project_id} not found")
+            raise ProjectNotFoundError(f"Project with ID {project_id} not found")
 
         # Check for duplicate names if name is being updated
         if name is not None:
@@ -115,7 +122,7 @@ class ProjectService:
                     existing_project.id != project_id
                     and existing_project.name.lower() == name.lower()
                 ):
-                    raise ValueError(f"Project with name '{name}' already exists")
+                    raise DuplicateProjectError(f"Project with name '{name}' already exists")
             project.update_name(name)
 
         if description is not None:
@@ -172,7 +179,7 @@ class ProjectService:
                 return project
         return None
 
-    def search_projects(self, query: str) -> List[Project]:
+    def search_projects(self, query: str) -> list[Project]:
         """
         Search projects by name or description.
 
@@ -213,7 +220,7 @@ class ProjectService:
         """
         project = self._storage.get_project(project_id)
         if not project:
-            raise ValueError(f"Project with ID {project_id} not found")
+            raise ProjectNotFoundError(f"Project with ID {project_id} not found")
 
         tasks = self._storage.get_tasks_by_project(project_id)
 

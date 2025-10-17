@@ -5,10 +5,17 @@ This module contains the business logic for managing tasks,
 including validation, limits, and business rules.
 """
 
+from __future__ import annotations
+
 from datetime import date
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
+from ..exceptions import (
+    ProjectNotFoundError,
+    TaskLimitExceededError,
+    TaskNotFoundError,
+)
 from ..models.task import Task
 from ..storage.in_memory_storage import InMemoryStorage
 from .config_service import ConfigService
@@ -59,12 +66,12 @@ class TaskService:
         """
         # Check if project exists
         if not self._storage.project_exists(project_id):
-            raise ValueError(f"Project with ID {project_id} not found")
+            raise ProjectNotFoundError(f"Project with ID {project_id} not found")
 
         # Check task limit for the project
         current_task_count = self._storage.get_task_count_by_project(project_id)
         if current_task_count >= self._config.get_task_max_count():
-            raise ValueError(
+            raise TaskLimitExceededError(
                 f"Maximum number of tasks ({self._config.get_task_max_count()}) "
                 f"exceeded for this project"
             )
@@ -85,7 +92,7 @@ class TaskService:
         """
         return self._storage.get_task(task_id)
 
-    def get_tasks_by_project(self, project_id: UUID) -> List[Task]:
+    def get_tasks_by_project(self, project_id: UUID) -> list[Task]:
         """
         Get all tasks in a project.
 
@@ -97,7 +104,7 @@ class TaskService:
         """
         return self._storage.get_tasks_by_project(project_id)
 
-    def get_all_tasks(self) -> List[Task]:
+    def get_all_tasks(self) -> list[Task]:
         """
         Get all tasks.
 
@@ -132,7 +139,7 @@ class TaskService:
         """
         task = self._storage.get_task(task_id)
         if not task:
-            raise ValueError(f"Task with ID {task_id} not found")
+            raise TaskNotFoundError(f"Task with ID {task_id} not found")
 
         if title is not None:
             task.update_title(title)
@@ -172,7 +179,7 @@ class TaskService:
         """
         return self._storage.task_exists(task_id)
 
-    def get_tasks_by_status(self, status: str) -> List[Task]:
+    def get_tasks_by_status(self, status: str) -> list[Task]:
         """
         Get all tasks with a specific status.
 
@@ -186,7 +193,7 @@ class TaskService:
 
     def get_tasks_by_project_and_status(
         self, project_id: UUID, status: str
-    ) -> List[Task]:
+    ) -> list[Task]:
         """
         Get tasks in a project with a specific status.
 
@@ -199,7 +206,7 @@ class TaskService:
         """
         return self._storage.get_tasks_by_project_and_status(project_id, status)
 
-    def get_overdue_tasks(self) -> List[Task]:
+    def get_overdue_tasks(self) -> list[Task]:
         """
         Get all overdue tasks.
 
@@ -209,7 +216,7 @@ class TaskService:
         all_tasks = self._storage.get_all_tasks()
         return [task for task in all_tasks if task.is_overdue()]
 
-    def get_overdue_tasks_by_project(self, project_id: UUID) -> List[Task]:
+    def get_overdue_tasks_by_project(self, project_id: UUID) -> list[Task]:
         """
         Get overdue tasks in a specific project.
 
@@ -222,7 +229,7 @@ class TaskService:
         project_tasks = self._storage.get_tasks_by_project(project_id)
         return [task for task in project_tasks if task.is_overdue()]
 
-    def get_completed_tasks(self) -> List[Task]:
+    def get_completed_tasks(self) -> list[Task]:
         """
         Get all completed tasks.
 
@@ -231,7 +238,7 @@ class TaskService:
         """
         return self._storage.get_tasks_by_status("done")
 
-    def get_completed_tasks_by_project(self, project_id: UUID) -> List[Task]:
+    def get_completed_tasks_by_project(self, project_id: UUID) -> list[Task]:
         """
         Get completed tasks in a specific project.
 
@@ -243,7 +250,7 @@ class TaskService:
         """
         return self._storage.get_tasks_by_project_and_status(project_id, "done")
 
-    def search_tasks(self, query: str, project_id: Optional[UUID] = None) -> List[Task]:
+    def search_tasks(self, query: str, project_id: Optional[UUID] = None) -> list[Task]:
         """
         Search tasks by title or description.
 

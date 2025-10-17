@@ -5,8 +5,10 @@ This module handles loading and managing application configuration
 from environment variables and .env files.
 """
 
+from __future__ import annotations
+
 import os
-from typing import Optional
+
 from dotenv import load_dotenv
 
 
