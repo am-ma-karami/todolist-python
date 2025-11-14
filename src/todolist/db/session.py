@@ -8,6 +8,7 @@ initialization of the database schema.
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from typing import Generator
 
 from dotenv import load_dotenv
@@ -67,6 +68,7 @@ def get_session_factory() -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
+@contextmanager
 def get_session() -> Generator[Session, None, None]:
     """
     Get a database session (context manager).
