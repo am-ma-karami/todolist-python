@@ -28,8 +28,18 @@ config = context.config
 
 # Get database URL from environment
 database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+if not database_url:
+    # Fallback to separate variables
+    db_user = os.getenv("DB_USER", "todolist_user")
+    db_password = os.getenv("DB_PASSWORD", "todolist_password")
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME", "todolist_db")
+    database_url = (
+        f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    )
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
