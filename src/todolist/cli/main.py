@@ -25,11 +25,8 @@ def main() -> None:
         # Initialize configuration
         config = ConfigService()
 
-        # Get database session
-        session_gen = get_session()
-        session = next(session_gen)
-
-        try:
+        # Get database session (context manager)
+        with get_session() as session:
             # Initialize repositories
             project_repo = SQLAlchemyProjectRepository(session)
             task_repo = SQLAlchemyTaskRepository(session)
@@ -41,10 +38,6 @@ def main() -> None:
             # Create and run CLI interface
             cli = CLIInterface(project_service, task_service, config)
             cli.run()
-
-        finally:
-            # Close session
-            session.close()
 
     except KeyboardInterrupt:
         print("\n\nGoodbye!")
