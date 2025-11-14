@@ -12,12 +12,15 @@ from typing import Optional
 from uuid import UUID
 
 from ..exceptions import (
+    InvalidStatusError,
     ProjectNotFoundError,
     TaskLimitExceededError,
     TaskNotFoundError,
+    ValidationError,
 )
-from ..models.task import Task
-from ..storage.in_memory_storage import InMemoryStorage
+from ..models.task import Task, VALID_STATUSES
+from ..repositories.project_repository import ProjectRepository
+from ..repositories.task_repository import TaskRepository
 from .config_service import ConfigService
 
 
@@ -29,20 +32,27 @@ class TaskService:
     with proper validation and business rule enforcement.
     """
 
-    def __init__(self, storage: InMemoryStorage, config: ConfigService) -> None:
+    def __init__(
+        self,
+        task_repository: TaskRepository,
+        project_repository: ProjectRepository,
+        config: ConfigService,
+    ) -> None:
         """
         Initialize the task service.
 
         Args:
-            storage: The storage layer to use
+            task_repository: The task repository to use
+            project_repository: The project repository to use
             config: The configuration service to use
         """
-        self._storage = storage
+        self._task_repo = task_repository
+        self._project_repo = project_repository
         self._config = config
 
     def create_task(
         self,
-        project_id: UUID,
+        project_id: UUID | str,
         title: str,
         description: str,
         status: str = "todo",
@@ -62,14 +72,23 @@ class TaskService:
             The created task
 
         Raises:
-            ValueError: If validation fails or limits are exceeded
+            ValidationError: If validation fails
+            ProjectNotFoundError: If project not found
+            TaskLimitExceededError: If task limit is exceeded
         """
+        # Validate inputs
+        self._validate_title(title)
+        self._validate_description(description)
+        self._validate_status(status)
+        if deadline is not None:
+            self._validate_deadline(deadline)
+
         # Check if project exists
-        if not self._storage.project_exists(project_id):
+        if not self._project_repo.exists(project_id):
             raise ProjectNotFoundError(f"Project with ID {project_id} not found")
 
         # Check task limit for the project
-        current_task_count = self._storage.get_task_count_by_project(project_id)
+        current_task_count = self._task_repo.count_by_project_id(project_id)
         if current_task_count >= self._config.get_task_max_count():
             raise TaskLimitExceededError(
                 f"Maximum number of tasks ({self._config.get_task_max_count()}) "
@@ -77,10 +96,17 @@ class TaskService:
             )
 
         # Create and store the task
-        task = Task(title, description, status, deadline)
-        return self._storage.create_task(task, project_id)
+        project_id_str = str(project_id)
+        task = Task(
+            project_id=project_id_str,
+            title=title.strip(),
+            description=description.strip(),
+            status=status,
+            deadline=deadline,
+        )
+        return self._task_repo.create(task)
 
-    def get_task(self, task_id: UUID) -> Optional[Task]:
+    def get_task(self, task_id: UUID | str) -> Optional[Task]:
         """
         Get a task by its ID.
 
@@ -90,9 +116,9 @@ class TaskService:
         Returns:
             The task if found, None otherwise
         """
-        return self._storage.get_task(task_id)
+        return self._task_repo.get_by_id(task_id)
 
-    def get_tasks_by_project(self, project_id: UUID) -> list[Task]:
+    def get_tasks_by_project(self, project_id: UUID | str) -> list[Task]:
         """
         Get all tasks in a project.
 
@@ -102,7 +128,7 @@ class TaskService:
         Returns:
             List of tasks in the project
         """
-        return self._storage.get_tasks_by_project(project_id)
+        return self._task_repo.get_by_project_id(project_id)
 
     def get_all_tasks(self) -> list[Task]:
         """
@@ -111,11 +137,11 @@ class TaskService:
         Returns:
             List of all tasks
         """
-        return self._storage.get_all_tasks()
+        return self._task_repo.get_all()
 
     def update_task(
         self,
-        task_id: UUID,
+        task_id: UUID | str,
         title: Optional[str] = None,
         description: Optional[str] = None,
         status: Optional[str] = None,
@@ -135,27 +161,32 @@ class TaskService:
             The updated task
 
         Raises:
-            ValueError: If task not found or validation fails
+            TaskNotFoundError: If task not found
+            ValidationError: If validation fails
         """
-        task = self._storage.get_task(task_id)
+        task = self._task_repo.get_by_id(task_id)
         if not task:
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
 
         if title is not None:
-            task.update_title(title)
+            self._validate_title(title)
+            task.title = title.strip()
 
         if description is not None:
-            task.update_description(description)
+            self._validate_description(description)
+            task.description = description.strip()
 
         if status is not None:
-            task.update_status(status)
+            self._validate_status(status)
+            task.status = status
 
         if deadline is not None:
-            task.update_deadline(deadline)
+            self._validate_deadline(deadline)
+            task.deadline = deadline
 
-        return self._storage.update_task(task)
+        return self._task_repo.update(task)
 
-    def delete_task(self, task_id: UUID) -> bool:
+    def delete_task(self, task_id: UUID | str) -> bool:
         """
         Delete a task.
 
@@ -165,9 +196,9 @@ class TaskService:
         Returns:
             True if the task was deleted, False if not found
         """
-        return self._storage.delete_task(task_id)
+        return self._task_repo.delete(task_id)
 
-    def task_exists(self, task_id: UUID) -> bool:
+    def task_exists(self, task_id: UUID | str) -> bool:
         """
         Check if a task exists.
 
@@ -177,7 +208,7 @@ class TaskService:
         Returns:
             True if the task exists, False otherwise
         """
-        return self._storage.task_exists(task_id)
+        return self._task_repo.exists(task_id)
 
     def get_tasks_by_status(self, status: str) -> list[Task]:
         """
@@ -189,10 +220,10 @@ class TaskService:
         Returns:
             List of tasks with the specified status
         """
-        return self._storage.get_tasks_by_status(status)
+        return self._task_repo.get_by_status(status)
 
     def get_tasks_by_project_and_status(
-        self, project_id: UUID, status: str
+        self, project_id: UUID | str, status: str
     ) -> list[Task]:
         """
         Get tasks in a project with a specific status.
@@ -204,7 +235,7 @@ class TaskService:
         Returns:
             List of tasks in the project with the specified status
         """
-        return self._storage.get_tasks_by_project_and_status(project_id, status)
+        return self._task_repo.get_by_project_and_status(project_id, status)
 
     def get_overdue_tasks(self) -> list[Task]:
         """
@@ -213,10 +244,17 @@ class TaskService:
         Returns:
             List of overdue tasks
         """
-        all_tasks = self._storage.get_all_tasks()
-        return [task for task in all_tasks if task.is_overdue()]
+        all_tasks = self._task_repo.get_all()
+        today = date.today()
+        return [
+            task
+            for task in all_tasks
+            if task.deadline
+            and task.deadline < today
+            and task.status != "done"
+        ]
 
-    def get_overdue_tasks_by_project(self, project_id: UUID) -> list[Task]:
+    def get_overdue_tasks_by_project(self, project_id: UUID | str) -> list[Task]:
         """
         Get overdue tasks in a specific project.
 
@@ -226,8 +264,15 @@ class TaskService:
         Returns:
             List of overdue tasks in the project
         """
-        project_tasks = self._storage.get_tasks_by_project(project_id)
-        return [task for task in project_tasks if task.is_overdue()]
+        project_tasks = self._task_repo.get_by_project_id(project_id)
+        today = date.today()
+        return [
+            task
+            for task in project_tasks
+            if task.deadline
+            and task.deadline < today
+            and task.status != "done"
+        ]
 
     def get_completed_tasks(self) -> list[Task]:
         """
@@ -236,9 +281,9 @@ class TaskService:
         Returns:
             List of completed tasks
         """
-        return self._storage.get_tasks_by_status("done")
+        return self._task_repo.get_by_status("done")
 
-    def get_completed_tasks_by_project(self, project_id: UUID) -> list[Task]:
+    def get_completed_tasks_by_project(self, project_id: UUID | str) -> list[Task]:
         """
         Get completed tasks in a specific project.
 
@@ -248,9 +293,11 @@ class TaskService:
         Returns:
             List of completed tasks in the project
         """
-        return self._storage.get_tasks_by_project_and_status(project_id, "done")
+        return self._task_repo.get_by_project_and_status(project_id, "done")
 
-    def search_tasks(self, query: str, project_id: Optional[UUID] = None) -> list[Task]:
+    def search_tasks(
+        self, query: str, project_id: Optional[UUID | str] = None
+    ) -> list[Task]:
         """
         Search tasks by title or description.
 
@@ -267,9 +314,9 @@ class TaskService:
         query_lower = query.lower().strip()
 
         if project_id:
-            tasks = self._storage.get_tasks_by_project(project_id)
+            tasks = self._task_repo.get_by_project_id(project_id)
         else:
-            tasks = self._storage.get_all_tasks()
+            tasks = self._task_repo.get_all()
 
         matching_tasks = []
         for task in tasks:
@@ -281,7 +328,9 @@ class TaskService:
 
         return matching_tasks
 
-    def get_task_statistics(self, project_id: Optional[UUID] = None) -> dict:
+    def get_task_statistics(
+        self, project_id: Optional[UUID | str] = None
+    ) -> dict:
         """
         Get task statistics.
 
@@ -292,22 +341,31 @@ class TaskService:
             Dictionary with task statistics
         """
         if project_id:
-            tasks = self._storage.get_tasks_by_project(project_id)
+            tasks = self._task_repo.get_by_project_id(project_id)
         else:
-            tasks = self._storage.get_all_tasks()
+            tasks = self._task_repo.get_all()
 
+        today = date.today()
         stats = {
             "total_tasks": len(tasks),
             "todo_tasks": len([t for t in tasks if t.status == "todo"]),
             "doing_tasks": len([t for t in tasks if t.status == "doing"]),
             "done_tasks": len([t for t in tasks if t.status == "done"]),
-            "overdue_tasks": len([t for t in tasks if t.is_overdue()]),
-            "completed_tasks": len([t for t in tasks if t.is_completed()]),
+            "overdue_tasks": len(
+                [
+                    t
+                    for t in tasks
+                    if t.deadline
+                    and t.deadline < today
+                    and t.status != "done"
+                ]
+            ),
+            "completed_tasks": len([t for t in tasks if t.status == "done"]),
         }
 
         return stats
 
-    def get_task_count_by_project(self, project_id: UUID) -> int:
+    def get_task_count_by_project(self, project_id: UUID | str) -> int:
         """
         Get the number of tasks in a project.
 
@@ -317,4 +375,75 @@ class TaskService:
         Returns:
             The number of tasks in the project
         """
-        return self._storage.get_task_count_by_project(project_id)
+        return self._task_repo.count_by_project_id(project_id)
+
+    def _validate_title(self, title: str) -> None:
+        """
+        Validate the task title.
+
+        Args:
+            title: The title to validate
+
+        Raises:
+            ValidationError: If the title doesn't meet requirements
+        """
+        if not isinstance(title, str):
+            raise ValidationError("Task title must be a string")
+
+        if not title or not title.strip():
+            raise ValidationError("Task title cannot be empty")
+
+        if len(title.strip()) < 3:
+            raise ValidationError("Task title must be at least 3 characters long")
+
+    def _validate_description(self, description: str) -> None:
+        """
+        Validate the task description.
+
+        Args:
+            description: The description to validate
+
+        Raises:
+            ValidationError: If the description doesn't meet requirements
+        """
+        if not isinstance(description, str):
+            raise ValidationError("Task description must be a string")
+
+        if not description or not description.strip():
+            raise ValidationError("Task description cannot be empty")
+
+        if len(description.strip()) < 15:
+            raise ValidationError(
+                "Task description must be at least 15 characters long"
+            )
+
+    def _validate_status(self, status: str) -> None:
+        """
+        Validate the task status.
+
+        Args:
+            status: The status to validate
+
+        Raises:
+            ValidationError: If the status is not valid
+        """
+        if not isinstance(status, str):
+            raise ValidationError("Task status must be a string")
+
+        if status not in VALID_STATUSES:
+            raise InvalidStatusError(
+                f"Task status must be one of {VALID_STATUSES}"
+            )
+
+    def _validate_deadline(self, deadline: date) -> None:
+        """
+        Validate the task deadline.
+
+        Args:
+            deadline: The deadline to validate
+
+        Raises:
+            ValidationError: If the deadline is not valid
+        """
+        if not isinstance(deadline, date):
+            raise ValidationError("Task deadline must be a date object")
