@@ -1,21 +1,11 @@
 """
-Custom exceptions for ToDoList application.
+Service layer exception classes.
 
-This module defines custom exception classes for better error handling
-and more specific error messages.
+These exceptions are raised by service layer when business logic
+validation fails or business rules are violated.
 """
 
-
-class ToDoListError(Exception):
-    """Base exception class for ToDoList application."""
-
-    pass
-
-
-class ValidationError(ToDoListError):
-    """Raised when validation fails."""
-
-    pass
+from .base import ToDoListError
 
 
 class ProjectError(ToDoListError):
@@ -65,20 +55,3 @@ class InvalidStatusError(TaskError):
 
     pass
 
-
-class StorageError(ToDoListError):
-    """Base exception for storage-related errors."""
-
-    pass
-
-
-class StorageNotFoundError(StorageError):
-    """Raised when a resource is not found in storage."""
-
-    pass
-
-
-class DuplicateResourceError(StorageError):
-    """Raised when trying to create a duplicate resource."""
-
-    pass
