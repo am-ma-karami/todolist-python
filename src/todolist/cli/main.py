@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import sys
 
-from ..storage.in_memory_storage import InMemoryStorage
+from ..db.session import get_session
+from ..repositories.project_repository import SQLAlchemyProjectRepository
+from ..repositories.task_repository import SQLAlchemyTaskRepository
 from ..services.config_service import ConfigService
 from ..services.project_service import ProjectService
 from ..services.task_service import TaskService
@@ -20,21 +22,30 @@ def main() -> None:
     Main entry point for the ToDoList CLI application.
     """
     try:
-        # Initialize services
+        # Initialize configuration
         config = ConfigService()
-        storage = InMemoryStorage()
-        project_service = ProjectService(storage, config)
-        task_service = TaskService(storage, config)
 
-        # Create and run CLI interface
-        cli = CLIInterface(project_service, task_service, config)
-        cli.run()
+        # Get database session (context manager)
+        with get_session() as session:
+            # Initialize repositories
+            project_repo = SQLAlchemyProjectRepository(session)
+            task_repo = SQLAlchemyTaskRepository(session)
+
+            # Initialize services
+            project_service = ProjectService(project_repo, config)
+            task_service = TaskService(task_repo, project_repo, config)
+
+            # Create and run CLI interface
+            cli = CLIInterface(project_service, task_service, config)
+            cli.run()
 
     except KeyboardInterrupt:
         print("\n\nGoodbye!")
         sys.exit(0)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 

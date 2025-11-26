@@ -14,9 +14,10 @@ from ..exceptions import (
     DuplicateProjectError,
     ProjectLimitExceededError,
     ProjectNotFoundError,
+    ValidationError,
 )
 from ..models.project import Project
-from ..storage.in_memory_storage import InMemoryStorage
+from ..repositories.project_repository import ProjectRepository
 from .config_service import ConfigService
 
 
@@ -28,15 +29,17 @@ class ProjectService:
     with proper validation and business rule enforcement.
     """
 
-    def __init__(self, storage: InMemoryStorage, config: ConfigService) -> None:
+    def __init__(
+        self, project_repository: ProjectRepository, config: ConfigService
+    ) -> None:
         """
         Initialize the project service.
 
         Args:
-            storage: The storage layer to use
+            project_repository: The project repository to use
             config: The configuration service to use
         """
-        self._storage = storage
+        self._repository = project_repository
         self._config = config
 
     def create_project(self, name: str, description: str) -> Project:
@@ -51,25 +54,30 @@ class ProjectService:
             The created project
 
         Raises:
-            ValueError: If validation fails or limits are exceeded
+            ValidationError: If validation fails
+            ProjectLimitExceededError: If project limit is exceeded
+            DuplicateProjectError: If project with same name exists
         """
+        # Validate inputs
+        self._validate_name(name)
+        self._validate_description(description)
+
         # Check project limit
-        if self._storage.get_project_count() >= self._config.get_project_max_count():
+        if self._repository.count() >= self._config.get_project_max_count():
             raise ProjectLimitExceededError(
                 f"Maximum number of projects ({self._config.get_project_max_count()}) exceeded"
             )
 
         # Check for duplicate project names
-        existing_projects = self._storage.get_all_projects()
-        for project in existing_projects:
-            if project.name.lower() == name.lower():
-                raise DuplicateProjectError(f"Project with name '{name}' already exists")
+        existing_project = self._repository.get_by_name(name)
+        if existing_project:
+            raise DuplicateProjectError(f"Project with name '{name}' already exists")
 
         # Create and store the project
-        project = Project(name, description)
-        return self._storage.create_project(project)
+        project = Project(name=name.strip(), description=description.strip())
+        return self._repository.create(project)
 
-    def get_project(self, project_id: UUID) -> Optional[Project]:
+    def get_project(self, project_id: UUID | str) -> Optional[Project]:
         """
         Get a project by its ID.
 
@@ -79,7 +87,7 @@ class ProjectService:
         Returns:
             The project if found, None otherwise
         """
-        return self._storage.get_project(project_id)
+        return self._repository.get_by_id(project_id)
 
     def get_all_projects(self) -> list[Project]:
         """
@@ -88,11 +96,11 @@ class ProjectService:
         Returns:
             List of all projects
         """
-        return self._storage.get_all_projects()
+        return self._repository.get_all()
 
     def update_project(
         self,
-        project_id: UUID,
+        project_id: UUID | str,
         name: Optional[str] = None,
         description: Optional[str] = None,
     ) -> Project:
@@ -108,29 +116,31 @@ class ProjectService:
             The updated project
 
         Raises:
-            ValueError: If project not found or validation fails
+            ProjectNotFoundError: If project not found
+            ValidationError: If validation fails
+            DuplicateProjectError: If duplicate name exists
         """
-        project = self._storage.get_project(project_id)
+        project = self._repository.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundError(f"Project with ID {project_id} not found")
 
         # Check for duplicate names if name is being updated
         if name is not None:
-            existing_projects = self._storage.get_all_projects()
-            for existing_project in existing_projects:
-                if (
-                    existing_project.id != project_id
-                    and existing_project.name.lower() == name.lower()
-                ):
-                    raise DuplicateProjectError(f"Project with name '{name}' already exists")
-            project.update_name(name)
+            self._validate_name(name)
+            existing_project = self._repository.get_by_name(name)
+            if existing_project and existing_project.id != str(project_id):
+                raise DuplicateProjectError(
+                    f"Project with name '{name}' already exists"
+                )
+            project.name = name.strip()
 
         if description is not None:
-            project.update_description(description)
+            self._validate_description(description)
+            project.description = description.strip()
 
-        return self._storage.update_project(project)
+        return self._repository.update(project)
 
-    def delete_project(self, project_id: UUID) -> bool:
+    def delete_project(self, project_id: UUID | str) -> bool:
         """
         Delete a project and all its tasks (cascade delete).
 
@@ -140,9 +150,9 @@ class ProjectService:
         Returns:
             True if the project was deleted, False if not found
         """
-        return self._storage.delete_project(project_id)
+        return self._repository.delete(project_id)
 
-    def project_exists(self, project_id: UUID) -> bool:
+    def project_exists(self, project_id: UUID | str) -> bool:
         """
         Check if a project exists.
 
@@ -152,7 +162,7 @@ class ProjectService:
         Returns:
             True if the project exists, False otherwise
         """
-        return self._storage.project_exists(project_id)
+        return self._repository.exists(project_id)
 
     def get_project_count(self) -> int:
         """
@@ -161,7 +171,7 @@ class ProjectService:
         Returns:
             The number of projects
         """
-        return self._storage.get_project_count()
+        return self._repository.count()
 
     def get_project_by_name(self, name: str) -> Optional[Project]:
         """
@@ -173,11 +183,7 @@ class ProjectService:
         Returns:
             The project if found, None otherwise
         """
-        projects = self._storage.get_all_projects()
-        for project in projects:
-            if project.name.lower() == name.lower():
-                return project
-        return None
+        return self._repository.get_by_name(name)
 
     def search_projects(self, query: str) -> list[Project]:
         """
@@ -193,7 +199,7 @@ class ProjectService:
             return []
 
         query_lower = query.lower().strip()
-        projects = self._storage.get_all_projects()
+        projects = self._repository.get_all()
 
         matching_projects = []
         for project in projects:
@@ -205,31 +211,82 @@ class ProjectService:
 
         return matching_projects
 
-    def get_project_statistics(self, project_id: UUID) -> dict:
+    def get_project_statistics(
+        self, project_id: UUID | str, task_repository
+    ) -> dict:
         """
         Get statistics for a project.
 
         Args:
             project_id: The ID of the project
+            task_repository: Task repository to get task statistics
 
         Returns:
             Dictionary with project statistics
 
         Raises:
-            ValueError: If project not found
+            ProjectNotFoundError: If project not found
         """
-        project = self._storage.get_project(project_id)
+        project = self._repository.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundError(f"Project with ID {project_id} not found")
 
-        tasks = self._storage.get_tasks_by_project(project_id)
+        tasks = task_repository.get_by_project_id(project_id)
 
         stats = {
             "total_tasks": len(tasks),
             "todo_tasks": len([t for t in tasks if t.status == "todo"]),
             "doing_tasks": len([t for t in tasks if t.status == "doing"]),
             "done_tasks": len([t for t in tasks if t.status == "done"]),
-            "overdue_tasks": len([t for t in tasks if t.is_overdue()]),
+            "overdue_tasks": len(
+                [
+                    t
+                    for t in tasks
+                    if t.deadline
+                    and t.deadline < __import__("datetime").date.today()
+                    and t.status != "done"
+                ]
+            ),
         }
 
         return stats
+
+    def _validate_name(self, name: str) -> None:
+        """
+        Validate the project name.
+
+        Args:
+            name: The name to validate
+
+        Raises:
+            ValidationError: If the name doesn't meet requirements
+        """
+        if not isinstance(name, str):
+            raise ValidationError("Project name must be a string")
+
+        if not name or not name.strip():
+            raise ValidationError("Project name cannot be empty")
+
+        if len(name.strip()) < 3:
+            raise ValidationError("Project name must be at least 3 characters long")
+
+    def _validate_description(self, description: str) -> None:
+        """
+        Validate the project description.
+
+        Args:
+            description: The description to validate
+
+        Raises:
+            ValidationError: If the description doesn't meet requirements
+        """
+        if not isinstance(description, str):
+            raise ValidationError("Project description must be a string")
+
+        if not description or not description.strip():
+            raise ValidationError("Project description cannot be empty")
+
+        if len(description.strip()) < 15:
+            raise ValidationError(
+                "Project description must be at least 15 characters long"
+            )
