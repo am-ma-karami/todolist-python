@@ -27,8 +27,10 @@ class CLIInterface:
     """
     Command-line interface for the ToDoList application.
 
-    This class provides methods to interact with projects and tasks
-    through a text-based interface.
+    This CLI interface is **deprecated** in Phase 3.
+    The primary way to interact with the application is now via the
+    FastAPI-based HTTP API. CLI remains only for backward compatibility
+    and will be removed in a future phase.
     """
 
     def __init__(
@@ -50,7 +52,15 @@ class CLIInterface:
         self._config = config
 
     def run(self) -> None:
-        """Run the main CLI loop."""
+        """Run the main CLI loop.
+
+        Note:
+            This CLI is deprecated. Prefer using the HTTP API instead.
+        """
+        print(
+            "⚠️  CLI interface is deprecated and will be removed in a future "
+            "version.\nPlease use the FastAPI HTTP API instead."
+        )
         self._print_welcome()
 
         while True:
@@ -437,12 +447,12 @@ class CLIInterface:
     def _print_single_task(self, task, index: int) -> None:
         """Print a single task with its details."""
         status_emoji = self._get_status_emoji(task.status)
-        overdue = " (OVERDUE)" if task.is_overdue() else ""
+            overdue = " (OVERDUE)" if task.is_overdue() else ""
         print(f"{index}. {status_emoji} {task.title}{overdue}")
-        print(f"   ID: {task.id}")
-        print(f"   Status: {task.status}")
-        if task.deadline:
-            print(f"   Deadline: {task.deadline}")
+            print(f"   ID: {task.id}")
+            print(f"   Status: {task.status}")
+            if task.deadline:
+                print(f"   Deadline: {task.deadline}")
         self._print_task_description(task.description)
 
     def _get_status_emoji(self, status: str) -> str:
@@ -453,7 +463,7 @@ class CLIInterface:
         """Print task description with truncation if needed."""
         truncated_desc = (
             f"{description[:100]}{'...' if len(description) > 100 else ''}"
-        )
+            )
         print(f"   Description: {truncated_desc}")
 
     def _view_task_details(self) -> None:
