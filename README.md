@@ -89,7 +89,61 @@ PYTHONPATH=src poetry run alembic downgrade -1
 
 ## Usage
 
-### Run CLI Application
+### Run Web API (FastAPI) — Phase 3
+
+```bash
+PYTHONPATH=src uvicorn todolist.api.main:app --reload
+```
+
+The API will be available at:
+
+```bash
+http://127.0.0.1:8000
+```
+
+Interactive API documentation (Swagger UI) is available at:
+
+```bash
+http://127.0.0.1:8000/docs
+```
+
+Alternative ReDoc documentation is available at:
+
+```bash
+http://127.0.0.1:8000/redoc
+```
+
+### Example API Endpoints
+
+- `GET /health` → simple health check
+- `GET /api/projects` → list all projects
+- `POST /api/projects` → create project
+- `GET /api/projects/{project_id}` → get single project
+- `PATCH /api/projects/{project_id}` → update project
+- `DELETE /api/projects/{project_id}` → delete project
+- `GET /api/projects/search?query=...` → search projects
+- `GET /api/projects/{project_id}/statistics` → project statistics
+
+- `GET /api/tasks` → list tasks (supports `status` and `project_id` filters)
+- `POST /api/tasks` → create task
+- `GET /api/tasks/{task_id}` → get single task
+- `PATCH /api/tasks/{task_id}` → update task
+- `DELETE /api/tasks/{task_id}` → delete task
+- `GET /api/tasks/overdue` → list overdue tasks
+- `GET /api/tasks/project/{project_id}` → list tasks in a project
+- `GET /api/tasks/search?query=...` → search tasks
+- `GET /api/tasks/statistics` → global or per-project task statistics
+
+All request and response schemas are documented automatically in `/docs`
+using Pydantic models and FastAPI's OpenAPI integration.
+
+### CLI Application (Deprecated in Phase 3)
+
+The CLI is kept only for backward compatibility and will be removed
+in a future phase. The recommended way to use the application is
+through the HTTP API described above.
+
+To run the deprecated CLI:
 
 ```bash
 PYTHONPATH=src poetry run python -m todolist.cli.main
@@ -100,6 +154,9 @@ Or with explicit env:
 ```bash
 poetry run env PYTHONPATH=src python -m todolist.cli.main
 ```
+
+When the CLI starts, it prints a deprecation warning and suggests
+using the FastAPI HTTP API instead.
 
 ### Run Autoclose Overdue Tasks Command
 
@@ -137,13 +194,14 @@ poetry run mypy .
 
 ```
 src/todolist/
-├── commands/          # Scheduled tasks and commands
+├── api/              # FastAPI app, routers, Pydantic models, dependencies
+├── commands/         # Scheduled tasks and commands
 ├── db/               # Database configuration and session management
 ├── exceptions/       # Custom exception classes
 ├── models/           # SQLAlchemy ORM models
 ├── repositories/     # Repository Pattern implementations
 ├── services/         # Business logic layer
-└── cli/              # Command-line interface
+└── cli/              # Command-line interface (deprecated)
 ```
 
 ## Architecture
@@ -151,5 +209,6 @@ src/todolist/
 - **Models**: SQLAlchemy ORM models (Project, Task)
 - **Repositories**: Data access layer with Repository Pattern
 - **Services**: Business logic and validation
-- **CLI**: User interface layer
+- **API**: FastAPI HTTP API (primary user-facing interface in Phase 3)
+- **CLI**: Command-line interface (deprecated in Phase 3)
 - **Commands**: Scheduled tasks and automation
