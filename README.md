@@ -129,10 +129,10 @@ http://127.0.0.1:8000/redoc
 - `GET /api/tasks/{task_id}` → get single task
 - `PATCH /api/tasks/{task_id}` → update task
 - `DELETE /api/tasks/{task_id}` → delete task
-- `GET /api/tasks/overdue` → list overdue tasks
+- `GET /api/tasks/overdue/list` → list overdue tasks
 - `GET /api/tasks/project/{project_id}` → list tasks in a project
 - `GET /api/tasks/search?query=...` → search tasks
-- `GET /api/tasks/statistics` → global or per-project task statistics
+- `GET /api/tasks/statistics/summary` → global or per-project task statistics
 
 All request and response schemas are documented automatically in `/docs`
 using Pydantic models and FastAPI's OpenAPI integration.

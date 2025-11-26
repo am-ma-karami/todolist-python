@@ -57,23 +57,17 @@ def create_project(
 
 
 @router.get(
-    "/{project_id}",
-    response_model=ProjectRead,
-    summary="Get project by ID",
+    "/search",
+    response_model=list[ProjectRead],
+    summary="Search projects",
 )
-def get_project(
-    project_id: str,
+def search_projects(
+    query: str,
     project_service: ProjectService = Depends(get_project_service),
-) -> ProjectRead:
-    """Get a single project by its ID."""
-    project = project_service.get_project(project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project with ID {project_id} not found",
-        )
-
-    return ProjectRead.model_validate(project)
+) -> list[ProjectRead]:
+    """Search projects by name or description."""
+    projects = project_service.search_projects(query)
+    return [ProjectRead.model_validate(project) for project in projects]
 
 
 @router.patch(
@@ -124,19 +118,24 @@ def delete_project(
             detail=f"Project with ID {project_id} not found",
         )
 
-
 @router.get(
-    "/search",
-    response_model=list[ProjectRead],
-    summary="Search projects",
+    "/{project_id}",
+    response_model=ProjectRead,
+    summary="Get project by ID",
 )
-def search_projects(
-    query: str,
+def get_project(
+    project_id: str,
     project_service: ProjectService = Depends(get_project_service),
-) -> list[ProjectRead]:
-    """Search projects by name or description."""
-    projects = project_service.search_projects(query)
-    return [ProjectRead.model_validate(project) for project in projects]
+) -> ProjectRead:
+    """Get a single project by its ID."""
+    project = project_service.get_project(project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with ID {project_id} not found",
+        )
+
+    return ProjectRead.model_validate(project)
 
 
 @router.get(

@@ -83,23 +83,20 @@ def create_task(
 
 
 @router.get(
-    "/{task_id}",
-    response_model=TaskRead,
-    summary="Get task by ID",
+    "/search",
+    response_model=list[TaskRead],
+    summary="Search tasks",
 )
-def get_task(
-    task_id: str,
+def search_tasks(
+    query: str,
+    project_id: Optional[str] = Query(
+        default=None, description="Limit search to a specific project",
+    ),
     task_service: TaskService = Depends(get_task_service),
-) -> TaskRead:
-    """Return a single task by ID."""
-    task = task_service.get_task(task_id)
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Task with ID {task_id} not found",
-        )
-
-    return TaskRead.model_validate(task)
+) -> list[TaskRead]:
+    """Search tasks by title or description."""
+    tasks = task_service.search_tasks(query=query, project_id=project_id)
+    return [TaskRead.model_validate(task) for task in tasks]
 
 
 @router.patch(
@@ -135,6 +132,26 @@ def update_task(
     return TaskRead.model_validate(task)
 
 
+@router.get(
+    "/{task_id}",
+    response_model=TaskRead,
+    summary="Get task by ID",
+)
+def get_task(
+    task_id: str,
+    task_service: TaskService = Depends(get_task_service),
+) -> TaskRead:
+    """Return a single task by ID."""
+    task = task_service.get_task(task_id)
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Task with ID {task_id} not found",
+        )
+
+    return TaskRead.model_validate(task)
+
+
 @router.delete(
     "/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -154,7 +171,7 @@ def delete_task(
 
 
 @router.get(
-    "/overdue",
+    "/overdue/list",
     response_model=list[TaskRead],
     summary="List overdue tasks",
 )
@@ -181,24 +198,7 @@ def list_project_tasks(
 
 
 @router.get(
-    "/search",
-    response_model=list[TaskRead],
-    summary="Search tasks",
-)
-def search_tasks(
-    query: str,
-    project_id: Optional[str] = Query(
-        default=None, description="Limit search to a specific project",
-    ),
-    task_service: TaskService = Depends(get_task_service),
-) -> list[TaskRead]:
-    """Search tasks by title or description."""
-    tasks = task_service.search_tasks(query=query, project_id=project_id)
-    return [TaskRead.model_validate(task) for task in tasks]
-
-
-@router.get(
-    "/statistics",
+    "/statistics/summary",
     summary="Get global task statistics",
 )
 def task_statistics(
