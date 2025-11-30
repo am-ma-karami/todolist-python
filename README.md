@@ -76,16 +76,29 @@ DB_NAME=todolist_db
 
 After setting up the database, run migrations:
 
-```bash
-# Create initial migration
-PYTHONPATH=src poetry run alembic revision --autogenerate -m "initial migration"
+**Important:** Always ensure the database is up to date before creating new migrations.
 
-# Apply migrations
+```bash
+# Apply existing migrations (run this first!)
 PYTHONPATH=src poetry run alembic upgrade head
 
-# Rollback last migration
+# Check current migration status
+PYTHONPATH=src poetry run alembic current
+
+# Create a new migration (only if you changed models)
+PYTHONPATH=src poetry run alembic revision --autogenerate -m "description of changes"
+
+# Apply the new migration
+PYTHONPATH=src poetry run alembic upgrade head
+
+# Rollback last migration (if needed)
 PYTHONPATH=src poetry run alembic downgrade -1
+
+# View migration history
+PYTHONPATH=src poetry run alembic history
 ```
+
+**Note:** The initial migration (`cd1443faf836`) already exists. You only need to create new migrations when you modify the database models (Project or Task).
 
 ## Usage
 
