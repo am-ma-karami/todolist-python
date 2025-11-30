@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from ...exceptions import (
     InvalidStatusError,
@@ -160,7 +160,7 @@ def get_task(
 def delete_task(
     task_id: str,
     task_service: TaskService = Depends(get_task_service),
-) -> None:
+) -> Response:
     """Delete a task by ID."""
     deleted = task_service.delete_task(task_id)
     if not deleted:
@@ -168,6 +168,7 @@ def delete_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task with ID {task_id} not found",
         )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

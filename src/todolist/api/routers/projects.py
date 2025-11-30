@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from ...exceptions import DuplicateProjectError, ProjectNotFoundError, ValidationError
 from ..dependencies import get_project_service, get_task_repository
@@ -109,7 +109,7 @@ def update_project(
 def delete_project(
     project_id: str,
     project_service: ProjectService = Depends(get_project_service),
-) -> None:
+) -> Response:
     """Delete a project by ID."""
     deleted = project_service.delete_project(project_id)
     if not deleted:
@@ -117,6 +117,7 @@ def delete_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project with ID {project_id} not found",
         )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.get(
     "/{project_id}",
