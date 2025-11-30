@@ -46,7 +46,7 @@ def list_tasks(
     else:
         tasks = task_service.get_all_tasks()
 
-    return [TaskRead.model_validate(task) for task in tasks]
+    return [TaskRead.from_orm(task) for task in tasks]
 
 
 @router.post(
@@ -79,7 +79,7 @@ def create_task(
             detail=str(exc),
         ) from exc
 
-    return TaskRead.model_validate(task)
+    return TaskRead.from_orm(task)
 
 
 @router.get(
@@ -96,7 +96,7 @@ def search_tasks(
 ) -> list[TaskRead]:
     """Search tasks by title or description."""
     tasks = task_service.search_tasks(query=query, project_id=project_id)
-    return [TaskRead.model_validate(task) for task in tasks]
+    return [TaskRead.from_orm(task) for task in tasks]
 
 
 @router.patch(
@@ -129,7 +129,7 @@ def update_task(
             detail=str(exc),
         ) from exc
 
-    return TaskRead.model_validate(task)
+    return TaskRead.from_orm(task)
 
 
 @router.get(
@@ -149,7 +149,7 @@ def get_task(
             detail=f"Task with ID {task_id} not found",
         )
 
-    return TaskRead.model_validate(task)
+    return TaskRead.from_orm(task)
 
 
 @router.delete(
@@ -181,7 +181,7 @@ def list_overdue_tasks(
 ) -> list[TaskRead]:
     """Return all overdue tasks."""
     tasks = task_service.get_overdue_tasks()
-    return [TaskRead.model_validate(task) for task in tasks]
+    return [TaskRead.from_orm(task) for task in tasks]
 
 
 @router.get(
@@ -195,7 +195,7 @@ def list_project_tasks(
 ) -> list[TaskRead]:
     """Return tasks belonging to a specific project."""
     tasks = task_service.get_tasks_by_project(project_id)
-    return [TaskRead.model_validate(task) for task in tasks]
+    return [TaskRead.from_orm(task) for task in tasks]
 
 
 @router.get(

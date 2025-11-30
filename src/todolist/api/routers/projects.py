@@ -28,7 +28,7 @@ def list_projects(
 ) -> list[ProjectRead]:
     """Return all projects."""
     projects = project_service.get_all_projects()
-    return [ProjectRead.model_validate(project) for project in projects]
+    return [ProjectRead.from_orm(project) for project in projects]
 
 
 @router.post(
@@ -53,7 +53,7 @@ def create_project(
             detail=str(exc),
         ) from exc
 
-    return ProjectRead.model_validate(project)
+    return ProjectRead.from_orm(project)
 
 
 @router.get(
@@ -67,7 +67,7 @@ def search_projects(
 ) -> list[ProjectRead]:
     """Search projects by name or description."""
     projects = project_service.search_projects(query)
-    return [ProjectRead.model_validate(project) for project in projects]
+    return [ProjectRead.from_orm(project) for project in projects]
 
 
 @router.patch(
@@ -98,7 +98,7 @@ def update_project(
             detail=str(exc),
         ) from exc
 
-    return ProjectRead.model_validate(project)
+    return ProjectRead.from_orm(project)
 
 
 @router.delete(
@@ -136,7 +136,7 @@ def get_project(
             detail=f"Project with ID {project_id} not found",
         )
 
-    return ProjectRead.model_validate(project)
+    return ProjectRead.from_orm(project)
 
 
 @router.get(
