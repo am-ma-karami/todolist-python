@@ -54,6 +54,6 @@ class TaskRead(TaskBase):
     class Config:
         """Pydantic configuration."""
 
-        from_attributes = True
+        orm_mode = True
 
 
